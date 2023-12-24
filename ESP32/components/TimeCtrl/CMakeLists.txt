@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "TimeCtrl.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        esp_timer
+        lwip
+        esp_wifi
+)

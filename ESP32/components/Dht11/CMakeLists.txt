@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "Dht11.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        driver
+        mqtt
+)

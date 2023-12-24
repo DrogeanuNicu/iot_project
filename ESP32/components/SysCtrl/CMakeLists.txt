@@ -1,0 +1,17 @@
+idf_component_register(
+    SRCS
+        "SysCtrl.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        nvs_flash
+        WifiCtrl
+        Mqtt
+        FanCtrl
+        PumpCtrl
+        MoistCtrl
+        I2cCtrl
+        LcdCtrl
+        TimeCtrl
+        Dht11
+)

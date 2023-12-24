@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "MoistCtrl.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        mqtt
+        esp_adc
+        hal
+)

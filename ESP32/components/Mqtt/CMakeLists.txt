@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS
+        "Mqtt.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        mqtt
+        esp_event
+        FanCtrl
+        PumpCtrl
+)

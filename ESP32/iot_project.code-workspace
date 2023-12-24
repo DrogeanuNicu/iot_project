@@ -1,0 +1,41 @@
+{
+	"folders": [
+		{
+			"name": "ESP32",
+			"path": "."
+		},
+		{
+			"name": "Backend",
+			"path": "../Backend"
+		},
+		{
+			"name": "Frontend",
+			"path": "../Frontend"
+		},
+		{
+			"name": "components",
+			"path": "../../../esp/esp-idf/components"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"wifictrl.h": "c",
+			"config.h": "c",
+			"nvs_flash.h": "c",
+			"err.h": "c",
+			"fanctrl.h": "c",
+			"gpio.h": "c",
+			"adc_oneshot.h": "c",
+			"adc_cali_scheme.h": "c",
+			"adc_hal.h": "c",
+			"soc_caps.h": "c",
+			"lcdctrl.h": "c",
+			"moistctrl.h": "c",
+			"unistd.h": "c",
+			"filesystem": "c",
+			"*.tcc": "c",
+			"chrono": "c",
+			"cstdint": "c"
+		}
+	}
+}

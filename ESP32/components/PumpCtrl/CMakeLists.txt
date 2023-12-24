@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "PumpCtrl.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        driver
+        mqtt
+)

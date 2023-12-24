@@ -1,0 +1,21 @@
+menu "Plant Monitoring System Configuration"
+config ESP_WIFI_SSID
+    string "WiFi SSID"
+    default "myssid"
+
+config ESP_WIFI_PASSWORD
+    string "WiFi Password"
+    default "mypassword"
+
+config ESP_SERVER_ADDRESS
+    string "Server address"
+    default "192.168.43.248"
+
+config ESP_SERVER_PORT
+    int "Server port"
+    default 1883
+
+config PRINT_DEBUG_LOGS
+    bool "Debug logs"
+    default "y"
+endmenu
