@@ -3,3 +3,10 @@ ESP32/sdkconfig
 ESP32/sdkconfig.old
 ESP32/.vscode
 .vscode
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+**/site-packages
+frontend/build/
+**/node_modules/
