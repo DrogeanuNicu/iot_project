@@ -3,9 +3,7 @@ import paho.mqtt.client as mqtt
 
 from Constants import *
 
-app = Flask(__name__,
-            static_folder=FLASK_STATIC_FOLDER_PATH,
-            static_url_path=FLASK_STATIC_URL_PATH)
+app = Flask(__name__)
 
 app.config['MQTT_BROKER_URL'] = MQTT_ADDR
 app.config['MQTT_BROKER_PORT'] = MQTT_PORT
