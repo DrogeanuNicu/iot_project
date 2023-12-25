@@ -6,11 +6,11 @@
 		},
 		{
 			"name": "Backend",
-			"path": "../Backend"
+			"path": "../backend"
 		},
 		{
 			"name": "Frontend",
-			"path": "../Frontend"
+			"path": "../frontend"
 		},
 		{
 			"name": "components",
