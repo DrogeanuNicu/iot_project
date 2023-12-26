@@ -1,0 +1,23 @@
+/* styles.css */
+html, body, #root, .MainPage {
+  height: 100%;
+  margin: 0;
+}
+
+.ContentContainer {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto;
+}
+
+.LeftContent {
+  flex: 1;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.RightContent {
+  flex: 2;
+  padding: 20px;
+  box-sizing: border-box;
+}

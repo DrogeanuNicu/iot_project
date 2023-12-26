@@ -1,5 +1,7 @@
 import paho.mqtt.client as mqtt
 
+from Dashboard import Dashboard
+
 MQTT_ADDR = "localhost"
 MQTT_PORT = 1883
 MQTT_KEEPALIVE = 5
@@ -8,7 +10,9 @@ MQTT_CLEAN_SESSION = True
 MQTT_REFRESH_TIME = 1.0
 
 class MqttHandler(mqtt.Client):
-    def __init__(self, client_id):
+    def __init__(self, client_id:str, dashboard_ref:Dashboard):
+        self.dashboard_ref = dashboard_ref
+
         super().__init__(protocol=mqtt.MQTTv5, client_id=client_id)
         self.on_connect = self.on_connect
         self.on_message = self.on_message
@@ -19,4 +23,8 @@ class MqttHandler(mqtt.Client):
         client.subscribe('#')
 
     def on_message(self, client, userdata, message):
-        print(f'MQTT: {message.topic}, payload: {message.payload.decode()}')
+        topic = message.topic
+        payload = message.payload.decode()
+
+        print(f'MQTT: topic={topic} payload={payload}')
+        self.dashboard_ref.append_data(topic, payload)
