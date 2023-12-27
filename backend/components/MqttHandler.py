@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 
 from Dashboard import Dashboard
+from Constants import *
 
 MQTT_ADDR = "localhost"
 MQTT_PORT = 1883
@@ -25,6 +26,15 @@ class MqttHandler(mqtt.Client):
     def on_message(self, client, userdata, message):
         topic = message.topic
         payload = message.payload.decode()
-
-        print(f'MQTT: topic={topic} payload={payload}')
-        self.dashboard_ref.append_data(topic, payload)
+        if topic == Topics.flask_server.value:
+            print(f'MQTT sent: topic={topic} payload={payload}')
+        else:
+            print(f'MQTT recv: topic={topic} payload={payload}')
+            if topic == Topics.limits.value:
+                self.dashboard_ref.store_limits(payload)
+            elif topic == Topics.plant.value:
+                if self.dashboard_ref.get_are_limits_stored is False:
+                    self.publish(Topics.flask_server.value, Devices.sys) #request limits
+                self.dashboard_ref.append_data(payload)
+            else:
+                print("Unknown MQTT topic!")

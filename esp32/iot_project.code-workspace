@@ -35,7 +35,13 @@
 			"filesystem": "c",
 			"*.tcc": "c",
 			"chrono": "c",
-			"cstdint": "c"
+			"cstdint": "c",
+			"array": "c",
+			"string": "c",
+			"string_view": "c",
+			"vector": "c",
+			"sstream": "c",
+			"regex": "c"
 		}
 	}
 }

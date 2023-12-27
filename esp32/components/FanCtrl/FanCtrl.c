@@ -4,7 +4,7 @@
 #include "FanCtrl.h"
 
 #define FANCTRL_PIN GPIO_NUM_17
-#define FAN_STATE_INDEX 1U
+#define FAN_STATE_INDEX 2U
 
 typedef enum
 {
@@ -65,7 +65,7 @@ esp_err_t FanCtrl_Stop(void)
 
 void FanCtrl_ProcessEvent(esp_mqtt_event_handle_t Event)
 {
-    if (Event->data_len < 2)
+    if (Event->data_len < FAN_STATE_INDEX + 1)
     {
         ESP_LOGE(TAG, "Invalid command! Fan state not specified!");
     }

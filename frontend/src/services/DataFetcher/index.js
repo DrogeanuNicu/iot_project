@@ -1,12 +1,12 @@
 class DataFetcher {
-    static async fetchData() {
+    static async fetchData(route) {
         try {
-            const response = await fetch('/api/data');
+            const response = await fetch(route);
             const json_response = await response.json();
-            return json_response; // Return the fetched data
+            return json_response;
         } catch (error) {
             console.error(error);
-            return null; // Return null or handle the error as needed
+            return null;
         }
     }
 }

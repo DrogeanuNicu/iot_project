@@ -1,7 +1,7 @@
-ESP32/build/
-ESP32/sdkconfig
-ESP32/sdkconfig.old
-ESP32/.vscode
+esp32/build/
+esp32/sdkconfig
+esp32/sdkconfig.old
+esp32/.vscode
 .vscode
 **/__pycache__/
 *.pyc

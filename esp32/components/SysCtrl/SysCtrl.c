@@ -14,9 +14,30 @@
 #include "TimeCtrl.h"
 #include "Dht11.h"
 
-#define MAX_MSG_BUF_LEN 70
+#define MAX_MSG_BUF_LEN 90
 
 static const char *TAG = "SysCtrl";
+typedef struct
+{
+    int TempMin;
+    int TempMax;
+    int HumMin;
+    int HumMax;
+    int MoistMin;
+    int MoistMax;
+} SysCtrl_Limits;
+
+static SysCtrl_Limits Limits = {
+    .TempMin = 20,
+    .TempMax = 25,
+    .HumMin = 40,
+    .HumMax = 60,
+    .MoistMin = 30,
+    .MoistMax = 70,
+};
+
+static void SetLimits(esp_mqtt_event_handle_t Event);
+static void GetLimits();
 
 void SysCtrl_Init(void)
 {
@@ -55,19 +76,79 @@ void SysCtrl_Main(void)
         FanState = FanCtrl_GetState();
         PumpState = PumpCtrl_GetState();
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "{\"time\":%10lu,\"temp\":%3d,\"hum\":%3d,\"moist\":%3d,\"fan\":%d,\"pump\":%d}",
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
                  Timestamp,
                  Dht11Reading.temperature,
                  Dht11Reading.humidity,
                  MoistReading,
                  FanState ? 1 : 0,
-                 PumpState ? 1 : 0);
+                 PumpState ? 1 : 0,
+                 '\0');
 
 #ifdef CONFIG_PRINT_DEBUG_LOGS
         ESP_LOGI(TAG, "%.*s", MAX_MSG_BUF_LEN, MessageBuffer);
 #endif
 
-        Mqtt_SendMessage("plant", MessageBuffer, MAX_MSG_BUF_LEN);
+        Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
+}
+
+void SysCtrl_ProcessEvent(esp_mqtt_event_handle_t Event)
+{
+#ifdef CONFIG_PRINT_DEBUG_LOGS
+    ESP_LOGI(TAG, "%.*s", Event->data_len, Event->data);
+#endif
+
+    if (Event->data_len < 1)
+    {
+        ESP_LOGE(TAG, "Invalid command!");
+    }
+    else if (1 == Event->data_len)
+    {
+        GetLimits();
+    }
+    else
+    {
+        SetLimits(Event);
+    }
+}
+
+static void SetLimits(esp_mqtt_event_handle_t Event)
+{
+#ifdef CONFIG_PRINT_DEBUG_LOGS
+    ESP_LOGI(TAG, "Setting the limits: %.*s", Event->data_len, Event->data);
+#endif
+    char *Token = strtok(Event->data, ",");
+    Token = strtok(NULL, ","); /* Skip the command */
+    Limits.TempMin = atoi(Token);
+    Token = strtok(NULL, ",");
+    Limits.TempMax = atoi(Token);
+    Token = strtok(NULL, ",");
+    Limits.HumMin = atoi(Token);
+    Token = strtok(NULL, ",");
+    Limits.HumMax = atoi(Token);
+    Token = strtok(NULL, ",");
+    Limits.MoistMin = atoi(Token);
+    Token = strtok(NULL, ",");
+    Limits.MoistMax = atoi(Token);
+}
+
+static void GetLimits()
+{
+    char MessageBuffer[MAX_MSG_BUF_LEN];
+    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%3d,%3d,%3d,%3d,%3d,%3d%c",
+             Limits.TempMin,
+             Limits.TempMax,
+             Limits.HumMin,
+             Limits.HumMax,
+             Limits.MoistMin,
+             Limits.MoistMax,
+             '\0');
+
+#ifdef CONFIG_PRINT_DEBUG_LOGS
+    ESP_LOGI(TAG, "Getting the limits: %.*s", strlen(MessageBuffer), MessageBuffer);
+#endif
+
+    Mqtt_SendMessage("limits", MessageBuffer, strlen(MessageBuffer));
 }

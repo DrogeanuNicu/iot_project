@@ -4,7 +4,7 @@
 #include "PumpCtrl.h"
 
 #define PUMPCTRL_PIN GPIO_NUM_16
-#define PUMP_STATE_INDEX 1U
+#define PUMP_STATE_INDEX 2U
 
 typedef enum
 {
@@ -66,7 +66,7 @@ esp_err_t PumpCtrl_Stop(void)
 
 void PumpCtrl_ProcessEvent(esp_mqtt_event_handle_t Event)
 {
-    if (Event->data_len < 2)
+    if (Event->data_len < PUMP_STATE_INDEX + 1)
     {
         ESP_LOGE(TAG, "Invalid command! Pump state not specified!");
     }

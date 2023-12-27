@@ -8,13 +8,15 @@
 #include "Mqtt.h"
 #include "FanCtrl.h"
 #include "PumpCtrl.h"
+#include "SysCtrl.h"
 
 #define COMPONENT_INDEX 0U
 
 typedef enum
 {
     FAN = '0',
-    PUMP = '1'
+    PUMP = '1',
+    SYS = '2'
 } COMPONENT;
 
 static const char *TAG = "MQTT";
@@ -119,6 +121,10 @@ static void MqttEventHandler(void *Args, esp_event_base_t Base, int32_t EventId,
 
         case PUMP:
             PumpCtrl_ProcessEvent(Event);
+            break;
+
+        case SYS:
+            SysCtrl_ProcessEvent(Event);
             break;
 
         default:
