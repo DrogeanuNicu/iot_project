@@ -13,7 +13,7 @@ typedef enum
 } FanState;
 
 static const char *TAG = "FanCtrl";
-volatile bool IsFanOn = false;
+static volatile bool IsFanOn = false;
 
 esp_err_t FanCtrl_Init(void)
 {
@@ -91,4 +91,19 @@ void FanCtrl_ProcessEvent(esp_mqtt_event_handle_t Event)
 bool FanCtrl_GetState(void)
 {
     return IsFanOn;
+}
+
+void FanCtrl_SetState(bool State)
+{
+    if (State != IsFanOn)
+    {
+        if (true == State)
+        {
+            FanCtrl_Start();
+        }
+        else
+        {
+            FanCtrl_Stop();
+        }
+    }
 }

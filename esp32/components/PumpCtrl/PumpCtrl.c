@@ -13,7 +13,7 @@ typedef enum
 } PumpState;
 
 static const char *TAG = "PumpCtrl";
-volatile bool IsPumpOn = false;
+static volatile bool IsPumpOn = false;
 
 esp_err_t PumpCtrl_Init(void)
 {
@@ -92,4 +92,19 @@ void PumpCtrl_ProcessEvent(esp_mqtt_event_handle_t Event)
 bool PumpCtrl_GetState(void)
 {
     return IsPumpOn;
+}
+
+void PumpCtrl_SetState(bool State)
+{
+    if (State != IsPumpOn)
+    {
+        if (true == State)
+        {
+            PumpCtrl_Start();
+        }
+        else
+        {
+            PumpCtrl_Stop();
+        }
+    }
 }

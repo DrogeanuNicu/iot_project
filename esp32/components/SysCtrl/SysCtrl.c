@@ -73,8 +73,26 @@ void SysCtrl_Main(void)
         Timestamp = TimeCtrl_GetTime();
         Dht11Reading = DHT11_read();
         MoistReading = MoistCtrl_GetMoist();
-        FanState = FanCtrl_GetState();
-        PumpState = PumpCtrl_GetState();
+        FanState = (Dht11Reading.temperature > Limits.TempMax);
+        PumpState = (MoistReading < Limits.MoistMin);
+
+        FanCtrl_SetState(FanState);
+        PumpCtrl_SetState(PumpState);
+
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %%%c",
+                 Dht11Reading.temperature,
+                 Dht11Reading.humidity,
+                 '\0');
+        LcdCtrl_MoveCurs(0, 0);
+        LcdCtrl_SendString(MessageBuffer);
+
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d%c",
+                 MoistReading,
+                 FanState ? 1 : 0,
+                 PumpState ? 1 : 0,
+                 '\0');
+        LcdCtrl_MoveCurs(1, 0);
+        LcdCtrl_SendString(MessageBuffer);
 
         snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
                  Timestamp,
