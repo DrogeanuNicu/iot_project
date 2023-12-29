@@ -1,9 +1,11 @@
 from flask import Flask, json, request
+from flask_cors import CORS
 from Dashboard import Dashboard
 from MqttHandler import MqttHandler
 from Constants import *
 
 app = Flask(__name__)
+CORS(app)
 json.provider.DefaultJSONProvider.sort_keys = False
 
 dashboard = Dashboard()
@@ -45,10 +47,10 @@ def set_limit(property, limit):
     value = data.get('value', False)
     dashboard.update_limit(property, limit, value)
     limits = dashboard.get_limits()
-    message = f"{Devices.sys},{limits['temp']['min']},{limits['temp']['max']},{limits['hum']['min']},{limits['hum']['max']},{limits['moist']['min']},{limits['moist']['max']}"
+    message = f"{Devices.sys.value},{limits['temp']['min']},{limits['temp']['max']},{limits['hum']['min']},{limits['hum']['max']},{limits['moist']['min']},{limits['moist']['max']}"
     mqtt_handler.publish(Topics.flask_server.value, message)
     return ('', 204)
 
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=False, host='drogeanunicusor.go.ro', port=5000)

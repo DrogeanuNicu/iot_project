@@ -1,3 +1,5 @@
 FLASK_APP=components/App.py
 FLASK_ENV=development
 FLASK_DEBUG=0
+FLASK_RUN_HOST=localhost
+FLASK_RUN_PORT=5000
