@@ -1,14 +1,15 @@
-from flask import Flask, json, request
+from flask import Flask, json, request, send_file
 from flask_cors import CORS
+import os
 from Dashboard import Dashboard
 from MqttHandler import MqttHandler
 from Constants import *
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, allow_headers=["Content-Type"])
 json.provider.DefaultJSONProvider.sort_keys = False
 
-dashboard = Dashboard()
+dashboard = Dashboard(root_path=app.root_path)
 mqtt_handler = MqttHandler(client_id=__name__, dashboard_ref=dashboard)
 mqtt_handler.publish(Topics.flask_server.value, Devices.sys) #request limits
 
@@ -21,6 +22,15 @@ def get_data():
 @app.route("/api/limits", methods=["GET"])
 def get_limits():
     return dashboard.get_limits()
+
+
+@app.route('/api/download')
+def download_csv():
+    csv_file = dashboard.get_csv_file_name()
+    if os.path.exists(csv_file):
+        return send_file(csv_file, as_attachment=True)
+    else:
+        return "CSV file not found", 404
 
 
 @app.route("/api/set/<device>", methods=["POST"])
