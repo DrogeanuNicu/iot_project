@@ -14,7 +14,7 @@
 #include "TimeCtrl.h"
 #include "Dht11.h"
 
-#define MAX_MSG_BUF_LEN 90
+#define MAX_MSG_BUF_LEN 90u
 
 static const char *TAG = "SysCtrl";
 typedef struct
@@ -29,11 +29,11 @@ typedef struct
 
 static SysCtrl_Limits Limits = {
     .TempMin = 20,
-    .TempMax = 25,
+    .TempMax = 30,
     .HumMin = 40,
     .HumMax = 60,
-    .MoistMin = 30,
-    .MoistMax = 70,
+    .MoistMin = 50,
+    .MoistMax = 90,
 };
 
 static void SetLimits(esp_mqtt_event_handle_t Event);
@@ -54,11 +54,13 @@ void SysCtrl_Init(void)
     ESP_ERROR_CHECK(DHT11_init());
     ESP_ERROR_CHECK(TimeCtrl_Init());
     ESP_ERROR_CHECK(Mqtt_Init());
+
+    GetLimits();
 }
 
 void SysCtrl_Main(void)
 {
-    uint32_t Timestamp;
+    uint32_t Timestamp = 0;
     Dht11_Reading Dht11Reading = {
         .status = DHT11_OK,
         .temperature = 0,
@@ -79,14 +81,14 @@ void SysCtrl_Main(void)
         FanCtrl_SetState(FanState);
         PumpCtrl_SetState(PumpState);
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %%%c",
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %% %c",
                  Dht11Reading.temperature,
                  Dht11Reading.humidity,
                  '\0');
         LcdCtrl_MoveCurs(0, 0);
         LcdCtrl_SendString(MessageBuffer);
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d%c",
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d %c",
                  MoistReading,
                  FanState ? 1 : 0,
                  PumpState ? 1 : 0,
@@ -108,7 +110,7 @@ void SysCtrl_Main(void)
 #endif
 
         Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 

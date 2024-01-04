@@ -60,11 +60,12 @@ static Dht11_Reading _timeoutError()
     return timeoutError;
 }
 
-static Dht11_Reading _crcError()
+/* static Dht11_Reading _crcError()
 {
     Dht11_Reading crcError = {DHT11_CRC_ERROR, -1, -1};
     return crcError;
 }
+*/
 
 esp_err_t DHT11_init()
 {
@@ -114,6 +115,6 @@ Dht11_Reading DHT11_read()
     }
     else
     {
-        return last_read = _crcError();
+        return last_read;
     }
 }
