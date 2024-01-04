@@ -3,6 +3,7 @@ import Header from '../../components/Header';
 import Table from '../../components/Table';
 import LineChart from '../../components/LineChart'
 import SwitchButton from '../../components/SwitchButton';
+import Button from '../../components/Button';
 
 import DataFetcher from '../../services/DataFetcher';
 
@@ -52,6 +53,9 @@ class Main extends Component {
                         <div>
                             <SwitchButton name="Fan" state={(lastDataSet.fan !== 0)} />
                             <SwitchButton name="Pump" state={(lastDataSet.pump !== 0)} />
+                        </div>
+                        <div>
+                            <Button text="Download" route="/api/download"/>
                         </div>
                     </div>
                     <div className={styles.RightContent}>
