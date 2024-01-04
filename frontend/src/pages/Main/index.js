@@ -50,8 +50,8 @@ class Main extends Component {
                     <div className={styles.LeftContent}>
                         <Table data={lastDataSet} labels={labels} limits={this.limits} />
                         <div>
-                            <SwitchButton name="Fan" state={(lastDataSet.fan != 0)} />
-                            <SwitchButton name="Pump" state={(lastDataSet.pump != 0)} />
+                            <SwitchButton name="Fan" state={(lastDataSet.fan !== 0)} />
+                            <SwitchButton name="Pump" state={(lastDataSet.pump !== 0)} />
                         </div>
                     </div>
                     <div className={styles.RightContent}>

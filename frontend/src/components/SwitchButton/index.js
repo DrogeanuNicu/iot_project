@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
-import styles from './styles.module.css';
 
 class SwitchButton extends Component {
   constructor(props) {

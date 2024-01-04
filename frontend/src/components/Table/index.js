@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import TableRow from "../../components/TableRow"
 import 'bootstrap/dist/css/bootstrap.min.css';
-import styles from './styles.module.css';
 
 class Table extends Component {
     constructor(props) {

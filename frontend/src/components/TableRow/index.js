@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import styles from './styles.module.css';
 
 class TableRow extends Component {
     constructor(props) {
@@ -15,7 +14,7 @@ class TableRow extends Component {
     }
 
     handleKeyPress = (property, limit, e) => {
-        if (e.key == 'Enter') {
+        if (e.key === 'Enter') {
             fetch(`/api/set/${property}/${limit}`, {
                 method: 'POST',
                 headers: {
