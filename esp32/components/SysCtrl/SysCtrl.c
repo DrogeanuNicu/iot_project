@@ -1,5 +1,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 
@@ -14,9 +15,9 @@
 #include "TimeCtrl.h"
 #include "Dht11.h"
 
-#define MAX_MSG_BUF_LEN 90u
+#define MAX_MSG_BUF_LEN 100u
+#define NUM_OF_INIT_PAR_TASKS 4u
 
-static const char *TAG = "SysCtrl";
 typedef struct
 {
     int TempMin;
@@ -27,6 +28,13 @@ typedef struct
     int MoistMax;
 } SysCtrl_Limits;
 
+typedef struct
+{
+    esp_err_t (*InitFunction)(void);
+    SemaphoreHandle_t Semaphore;
+} TaskInfo;
+
+static const char *TAG = "SysCtrl";
 static SysCtrl_Limits Limits = {
     .TempMin = 20,
     .TempMax = 30,
@@ -37,7 +45,9 @@ static SysCtrl_Limits Limits = {
 };
 
 static void SetLimits(esp_mqtt_event_handle_t Event);
-static void GetLimits();
+static void GetLimits(void);
+static esp_err_t SensActsInit(void);
+static void Generic_Init_Task(void *pvParameters);
 
 void SysCtrl_Init(void)
 {
@@ -46,71 +56,131 @@ void SysCtrl_Init(void)
 #endif
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(WifiCtrl_Init());
-    ESP_ERROR_CHECK(FanCtrl_Init());
-    ESP_ERROR_CHECK(PumpCtrl_Init());
-    ESP_ERROR_CHECK(MoistCtrl_Init());
     ESP_ERROR_CHECK(I2cCtrl_Init());
-    ESP_ERROR_CHECK(LcdCtrl_Init());
-    ESP_ERROR_CHECK(DHT11_init());
-    ESP_ERROR_CHECK(TimeCtrl_Init());
-    ESP_ERROR_CHECK(Mqtt_Init());
 
-    GetLimits();
+    SemaphoreHandle_t SharedSemaphore = xSemaphoreCreateCounting(NUM_OF_INIT_PAR_TASKS, NUM_OF_INIT_PAR_TASKS);
+
+    TaskInfo Tasks[NUM_OF_INIT_PAR_TASKS] = {
+        {
+            .InitFunction = LcdCtrl_Init,
+            .Semaphore = SharedSemaphore,
+        },
+        {
+            .InitFunction = TimeCtrl_Init,
+            .Semaphore = SharedSemaphore,
+        },
+        {
+            .InitFunction = Mqtt_Init,
+            .Semaphore = SharedSemaphore,
+        },
+        {
+            .InitFunction = SensActsInit,
+            .Semaphore = SharedSemaphore,
+        },
+    };
+
+    if (SharedSemaphore != NULL)
+    {
+        for (uint8_t i = 0; i < NUM_OF_INIT_PAR_TASKS; i++)
+        {
+            xTaskCreate(&Generic_Init_Task, "Init_Task", configMINIMAL_STACK_SIZE * 2, (void *)&Tasks[i], 1, NULL);
+        }
+
+        while (uxSemaphoreGetCount(SharedSemaphore) > 0)
+        {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+
+        vSemaphoreDelete(SharedSemaphore);
+    }
+    else /* Serial initialization */
+    {
+        for (uint8_t i = 0; i < NUM_OF_INIT_PAR_TASKS; i++)
+        {
+            ESP_ERROR_CHECK(Tasks[i].InitFunction());
+        }
+    }
 }
 
 void SysCtrl_Main(void)
 {
     uint32_t Timestamp = 0;
-    Dht11_Reading Dht11Reading = {
-        .status = DHT11_OK,
-        .temperature = 0,
-        .humidity = 0};
-    int MoistReading = 0;
-    bool FanState = false;
-    bool PumpState = false;
+    uint32_t LastTimestamp = 0;
     char MessageBuffer[MAX_MSG_BUF_LEN];
+
+    SysCtrl_Data Data = {
+        .Dht11Data = {
+            .status = DHT11_OK,
+            .temperature = 0,
+            .humidity = 0,
+        },
+        .Moist = 0,
+        .Fan = false,
+        .Pump = false,
+    };
+    SysCtrl_Data LastData = Data;
+    SysCtrl_DataPos DataPos = {
+        .TempRow = 0,
+        .TempCol = 2,
+        .HumRow = 0,
+        .HumCol = 10,
+        .MoistRow = 1,
+        .MoistCol = 2,
+        .FanRow = 1,
+        .FanCol = 10,
+        .PumpRow = 1,
+        .PumpCol = 14,
+    };
+
+    GetLimits();
+
+    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %% %c",
+             Data.Dht11Data.temperature,
+             Data.Dht11Data.humidity,
+             '\0');
+    LcdCtrl_MoveCurs(0, 0);
+    LcdCtrl_SendString(MessageBuffer);
+    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d %c",
+             Data.Moist,
+             Data.Fan ? 1 : 0,
+             Data.Pump ? 1 : 0,
+             '\0');
+    LcdCtrl_MoveCurs(1, 0);
+    LcdCtrl_SendString(MessageBuffer);
 
     while (1)
     {
         Timestamp = TimeCtrl_GetTime();
-        Dht11Reading = DHT11_read();
-        MoistReading = MoistCtrl_GetMoist();
-        FanState = (Dht11Reading.temperature > Limits.TempMax);
-        PumpState = (MoistReading < Limits.MoistMin);
+        Data.Dht11Data = DHT11_read(Timestamp);
+        Data.Moist = MoistCtrl_GetMoist(Timestamp);
+        Data.Fan = (Data.Dht11Data.temperature > Limits.TempMax);
+        Data.Pump = (Data.Moist < Limits.MoistMin);
 
-        FanCtrl_SetState(FanState);
-        PumpCtrl_SetState(PumpState);
+        FanCtrl_SetState(Data.Fan);
+        PumpCtrl_SetState(Data.Pump);
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %% %c",
-                 Dht11Reading.temperature,
-                 Dht11Reading.humidity,
-                 '\0');
-        LcdCtrl_MoveCurs(0, 0);
-        LcdCtrl_SendString(MessageBuffer);
+        if (Timestamp - LastTimestamp >= 1)
+        {
+            LastTimestamp = Timestamp;
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d %c",
-                 MoistReading,
-                 FanState ? 1 : 0,
-                 PumpState ? 1 : 0,
-                 '\0');
-        LcdCtrl_MoveCurs(1, 0);
-        LcdCtrl_SendString(MessageBuffer);
+            LcdCtrl_PrintNewData(&LastData, &Data, &DataPos);
 
-        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
-                 Timestamp,
-                 Dht11Reading.temperature,
-                 Dht11Reading.humidity,
-                 MoistReading,
-                 FanState ? 1 : 0,
-                 PumpState ? 1 : 0,
-                 '\0');
+            snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
+                     Timestamp,
+                     Data.Dht11Data.temperature,
+                     Data.Dht11Data.humidity,
+                     Data.Moist,
+                     Data.Fan ? 1 : 0,
+                     Data.Pump ? 1 : 0,
+                     '\0');
+            Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
 
+            LastData = Data;
 #ifdef CONFIG_PRINT_DEBUG_LOGS
-        ESP_LOGI(TAG, "%.*s", MAX_MSG_BUF_LEN, MessageBuffer);
+            ESP_LOGI(TAG, "%.*s", MAX_MSG_BUF_LEN, MessageBuffer);
 #endif
-
-        Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -154,7 +224,7 @@ static void SetLimits(esp_mqtt_event_handle_t Event)
     Limits.MoistMax = atoi(Token);
 }
 
-static void GetLimits()
+static void GetLimits(void)
 {
     char MessageBuffer[MAX_MSG_BUF_LEN];
     snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%3d,%3d,%3d,%3d,%3d,%3d%c",
@@ -171,4 +241,45 @@ static void GetLimits()
 #endif
 
     Mqtt_SendMessage("limits", MessageBuffer, strlen(MessageBuffer));
+}
+
+static esp_err_t SensActsInit(void)
+{
+    esp_err_t ReturnStatus = ESP_FAIL;
+
+    ReturnStatus = FanCtrl_Init();
+    if (ReturnStatus != ESP_OK)
+    {
+        return ReturnStatus;
+    }
+    ReturnStatus = PumpCtrl_Init();
+    if (ReturnStatus != ESP_OK)
+    {
+        return ReturnStatus;
+    }
+    ReturnStatus = MoistCtrl_Init();
+    if (ReturnStatus != ESP_OK)
+    {
+        return ReturnStatus;
+    }
+    ReturnStatus = DHT11_init();
+    if (ReturnStatus != ESP_OK)
+    {
+        return ReturnStatus;
+    }
+
+    return ReturnStatus;
+}
+
+static void Generic_Init_Task(void *pvParameters)
+{
+    TaskInfo *Task = (TaskInfo *)pvParameters;
+
+    if (Task->InitFunction != NULL)
+    {
+        ESP_ERROR_CHECK(Task->InitFunction());
+    }
+
+    xSemaphoreTake(Task->Semaphore, portMAX_DELAY);
+    vTaskDelete(NULL);
 }

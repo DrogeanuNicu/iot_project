@@ -4,7 +4,11 @@
 #include "LcdCtrl.h"
 #include "esp_log.h"
 #include "driver/i2c.h"
-#include "unistd.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "SysCtrl.h"
+#include "Dht11.h"
 
 #define SLAVE_ADDRESS_LCD 0x4E >> 1 /* 7bit address */
 #define I2C_NUM I2C_NUM_0
@@ -51,7 +55,12 @@
 #define LCD_BACKLIGHT 0x08
 #define LCD_NOBACKLIGHT 0x00
 
+#define LCD_MAX_DATA_LEN 8u
+#define LCD_MAX_PRINT_TRIES 3u
+
 static const char *TAG = "LCD";
+
+static esp_err_t PrintDataAt(int Row, int Col, char *StringFormat, int Data, int Tries);
 
 esp_err_t LcdCtrl_SendCmd(char cmd)
 {
@@ -102,7 +111,7 @@ esp_err_t LcdCtrl_Clear(void)
     {
         return ReturnStatus;
     }
-    usleep(5000);
+    vTaskDelay(pdMS_TO_TICKS(5));
     return ESP_OK;
 }
 
@@ -124,35 +133,35 @@ esp_err_t LcdCtrl_MoveCurs(int row, int col)
 esp_err_t LcdCtrl_Init(void)
 {
     esp_err_t ReturnStatus;
-    usleep(50000);
+    vTaskDelay(pdMS_TO_TICKS(50));
 
     ReturnStatus = LcdCtrl_SendCmd(LCD_NOBACKLIGHT);
     if (ReturnStatus != ESP_OK)
     {
         return ReturnStatus;
     }
-    usleep(1000000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     ReturnStatus = LcdCtrl_SendCmd(0x30);
     if (ReturnStatus != ESP_OK)
     {
         return ReturnStatus;
     }
-    usleep(4500000);
+    vTaskDelay(pdMS_TO_TICKS(4500));
 
     ReturnStatus = LcdCtrl_SendCmd(0x30);
     if (ReturnStatus != ESP_OK)
     {
         return ReturnStatus;
     }
-    usleep(4500000);
+    vTaskDelay(pdMS_TO_TICKS(4500));
 
     ReturnStatus = LcdCtrl_SendCmd(0x30);
     if (ReturnStatus != ESP_OK)
     {
         return ReturnStatus;
     }
-    usleep(150000);
+    vTaskDelay(pdMS_TO_TICKS(150));
 
     ReturnStatus = LcdCtrl_SendCmd(0x20);
     if (ReturnStatus != ESP_OK)
@@ -165,20 +174,14 @@ esp_err_t LcdCtrl_Init(void)
     {
         return ReturnStatus;
     }
-
-    ReturnStatus = LcdCtrl_SendCmd(LCD_DISPLAYCONTROL | LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF);
-    if (ReturnStatus != ESP_OK)
-    {
-        return ReturnStatus;
-    }
-
+/*
     ReturnStatus = LcdCtrl_SendCmd(LCD_CLEARDISPLAY);
     if (ReturnStatus != ESP_OK)
     {
         return ReturnStatus;
     }
-    usleep(2000000);
-
+    vTaskDelay(pdMS_TO_TICKS(2000));
+ */
     ReturnStatus = LcdCtrl_SendCmd(LCD_ENTRYMODESET | LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT);
     if (ReturnStatus != ESP_OK)
     {
@@ -190,7 +193,13 @@ esp_err_t LcdCtrl_Init(void)
     {
         return ReturnStatus;
     }
-    usleep(2000000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    ReturnStatus = LcdCtrl_SendCmd(LCD_DISPLAYCONTROL | LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF);
+    if (ReturnStatus != ESP_OK)
+    {
+        return ReturnStatus;
+    }
 
     return ReturnStatus;
 }
@@ -206,5 +215,55 @@ esp_err_t LcdCtrl_SendString(char *str)
             return ReturnStatus;
         }
     }
+    return ReturnStatus;
+}
+
+void LcdCtrl_PrintNewData(SysCtrl_Data *LastData, SysCtrl_Data *Data, SysCtrl_DataPos *DataPos)
+{
+    if (LastData->Dht11Data.temperature != Data->Dht11Data.temperature)
+    {
+        PrintDataAt(DataPos->TempRow, DataPos->TempCol, "%3d%c", Data->Dht11Data.temperature, LCD_MAX_PRINT_TRIES);
+    }
+
+    if (LastData->Dht11Data.humidity != Data->Dht11Data.humidity)
+    {
+        PrintDataAt(DataPos->HumRow, DataPos->HumCol, "%3d%c", Data->Dht11Data.humidity, LCD_MAX_PRINT_TRIES);
+    }
+
+    if (LastData->Moist != Data->Moist)
+    {
+        PrintDataAt(DataPos->MoistRow, DataPos->MoistCol, "%3d%c", Data->Moist, LCD_MAX_PRINT_TRIES);
+    }
+
+    if (LastData->Fan != Data->Fan)
+    {
+        PrintDataAt(DataPos->FanRow, DataPos->FanCol, "%1d%c", Data->Fan ? 1 : 0, LCD_MAX_PRINT_TRIES);
+    }
+
+    if (LastData->Pump != Data->Pump)
+    {
+        PrintDataAt(DataPos->PumpRow, DataPos->PumpCol, "%1d%c", Data->Pump ? 1 : 0, LCD_MAX_PRINT_TRIES);
+    }
+}
+
+static esp_err_t PrintDataAt(int Row, int Col, char *StringFormat, int Data, int Tries)
+{
+    esp_err_t ReturnStatus = ESP_FAIL;
+    char Message[LCD_MAX_DATA_LEN];
+
+    for (int i = 0; i < Tries; i++)
+    {
+        ReturnStatus = LcdCtrl_MoveCurs(Row, Col);
+        if (ESP_OK == ReturnStatus)
+        {
+            snprintf(Message, LCD_MAX_DATA_LEN, StringFormat, Data, '\0');
+            ReturnStatus = LcdCtrl_SendString(Message);
+            if (ESP_OK == ReturnStatus)
+            {
+                break;
+            }
+        }
+    }
+
     return ReturnStatus;
 }

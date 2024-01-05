@@ -20,6 +20,6 @@ typedef struct
 } Dht11_Reading;
 
 esp_err_t DHT11_init(void);
-Dht11_Reading DHT11_read();
+Dht11_Reading DHT11_read(uint32_t CurrentTimestamp);
 
 #endif

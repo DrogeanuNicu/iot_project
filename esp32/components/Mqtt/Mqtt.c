@@ -38,6 +38,8 @@ esp_err_t Mqtt_Init(void)
         },
     };
 
+    vTaskDelay(pdMS_TO_TICKS(3000)); /* Be sure the connection is stable */
+
     MqttClient = esp_mqtt_client_init(&MqttCfg);
     esp_mqtt_client_register_event(MqttClient, ESP_EVENT_ANY_ID, MqttEventHandler, MqttClient);
     ReturnStatus = esp_mqtt_client_start(MqttClient);

@@ -10,7 +10,12 @@
 #define ADC_RESOLUTION ADC_BITWIDTH_DEFAULT
 #define ADC_ATTENUATION ADC_ATTEN_DB_11
 
+#define MOIST_CTRL_SEC_TO_READ 1u
+
 const static char *TAG = "MoistCtrl";
+static uint32_t LastTimestamp = 0;
+static int LastMoisture = 0;
+
 adc_oneshot_unit_handle_t AdcHandler;
 
 esp_err_t MoistCtrl_Init(void)
@@ -41,11 +46,30 @@ esp_err_t MoistCtrl_Init(void)
     return ESP_OK;
 }
 
-int MoistCtrl_GetMoist(void)
+int MoistCtrl_GetMoist(uint32_t Timestamp)
 {
+    esp_err_t ReturnStatus = ESP_FAIL;
     int AdcResult = 0;
     int Moisture = 0;
-    ESP_ERROR_CHECK(adc_oneshot_read(AdcHandler, ADC_CHANNEL, &AdcResult));
-    Moisture = (100 - ((AdcResult / 4095.00) * 100));
-    return Moisture;
+    if (Timestamp - LastTimestamp > MOIST_CTRL_SEC_TO_READ)
+    {
+        ReturnStatus = adc_oneshot_read(AdcHandler, ADC_CHANNEL, &AdcResult);
+        if (ESP_OK == ReturnStatus)
+        {
+            Moisture = (100 - ((AdcResult / 4095.00) * 100));
+            LastMoisture = Moisture;
+            return Moisture;
+        }
+        else
+        {
+#ifdef CONFIG_PRINT_DEBUG_LOGS
+            ESP_LOGI(TAG, "Reading moisture skipped!");
+#endif
+            return LastMoisture;
+        }
+    }
+    else
+    {
+        return LastMoisture;
+    }
 }
