@@ -6,6 +6,7 @@
 
 typedef struct
 {
+    uint32_t Timestamp;
     Dht11_Reading Dht11Data;
     int Moist;
     bool Fan;

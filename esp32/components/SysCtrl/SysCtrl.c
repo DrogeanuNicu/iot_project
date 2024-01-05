@@ -32,7 +32,13 @@ typedef struct
 {
     esp_err_t (*InitFunction)(void);
     SemaphoreHandle_t Semaphore;
-} TaskInfo;
+} InitTaskInfo;
+
+typedef struct
+{
+    SysCtrl_Data *pData;
+    SemaphoreHandle_t Semaphore;
+} UpdateTaskInfo;
 
 static const char *TAG = "SysCtrl";
 static SysCtrl_Limits Limits = {
@@ -47,7 +53,8 @@ static SysCtrl_Limits Limits = {
 static void SetLimits(esp_mqtt_event_handle_t Event);
 static void GetLimits(void);
 static esp_err_t SensActsInit(void);
-static void Generic_Init_Task(void *pvParameters);
+static void GenericInitTask(void *pvParameters);
+static void UpdateDataTask(void *pvParameters);
 
 void SysCtrl_Init(void)
 {
@@ -60,7 +67,7 @@ void SysCtrl_Init(void)
 
     SemaphoreHandle_t SharedSemaphore = xSemaphoreCreateCounting(NUM_OF_INIT_PAR_TASKS, NUM_OF_INIT_PAR_TASKS);
 
-    TaskInfo Tasks[NUM_OF_INIT_PAR_TASKS] = {
+    InitTaskInfo Tasks[NUM_OF_INIT_PAR_TASKS] = {
         {
             .InitFunction = LcdCtrl_Init,
             .Semaphore = SharedSemaphore,
@@ -83,7 +90,7 @@ void SysCtrl_Init(void)
     {
         for (uint8_t i = 0; i < NUM_OF_INIT_PAR_TASKS; i++)
         {
-            xTaskCreate(&Generic_Init_Task, "Init_Task", configMINIMAL_STACK_SIZE * 2, (void *)&Tasks[i], 1, NULL);
+            xTaskCreate(&GenericInitTask, "Init_Task", configMINIMAL_STACK_SIZE * 2, (void *)&Tasks[i], 1, NULL);
         }
 
         while (uxSemaphoreGetCount(SharedSemaphore) > 0)
@@ -104,11 +111,9 @@ void SysCtrl_Init(void)
 
 void SysCtrl_Main(void)
 {
-    uint32_t Timestamp = 0;
     uint32_t LastTimestamp = 0;
-    char MessageBuffer[MAX_MSG_BUF_LEN];
-
     SysCtrl_Data Data = {
+        .Timestamp = 0,
         .Dht11Data = {
             .status = DHT11_OK,
             .temperature = 0,
@@ -118,67 +123,28 @@ void SysCtrl_Main(void)
         .Fan = false,
         .Pump = false,
     };
-    SysCtrl_Data LastData = Data;
-    SysCtrl_DataPos DataPos = {
-        .TempRow = 0,
-        .TempCol = 2,
-        .HumRow = 0,
-        .HumCol = 10,
-        .MoistRow = 1,
-        .MoistCol = 2,
-        .FanRow = 1,
-        .FanCol = 10,
-        .PumpRow = 1,
-        .PumpCol = 14,
+
+    UpdateTaskInfo UpdataInfo = {
+        .pData = &Data,
+        .Semaphore = xSemaphoreCreateBinary(),
     };
-
-    GetLimits();
-
-    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %% %c",
-             Data.Dht11Data.temperature,
-             Data.Dht11Data.humidity,
-             '\0');
-    LcdCtrl_MoveCurs(0, 0);
-    LcdCtrl_SendString(MessageBuffer);
-    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d %c",
-             Data.Moist,
-             Data.Fan ? 1 : 0,
-             Data.Pump ? 1 : 0,
-             '\0');
-    LcdCtrl_MoveCurs(1, 0);
-    LcdCtrl_SendString(MessageBuffer);
+    xTaskCreate(&UpdateDataTask, "Update_Task", 4096, (void *)&UpdataInfo, 1, NULL);
 
     while (1)
     {
-        Timestamp = TimeCtrl_GetTime();
-        Data.Dht11Data = DHT11_read(Timestamp);
-        Data.Moist = MoistCtrl_GetMoist(Timestamp);
+        Data.Timestamp = TimeCtrl_GetTime();
+        Data.Dht11Data = DHT11_read(Data.Timestamp);
+        Data.Moist = MoistCtrl_GetMoist(Data.Timestamp);
         Data.Fan = (Data.Dht11Data.temperature > Limits.TempMax);
         Data.Pump = (Data.Moist < Limits.MoistMin);
 
         FanCtrl_SetState(Data.Fan);
         PumpCtrl_SetState(Data.Pump);
 
-        if (Timestamp - LastTimestamp >= 1)
+        if (Data.Timestamp - LastTimestamp >= 1)
         {
-            LastTimestamp = Timestamp;
-
-            LcdCtrl_PrintNewData(&LastData, &Data, &DataPos);
-
-            snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
-                     Timestamp,
-                     Data.Dht11Data.temperature,
-                     Data.Dht11Data.humidity,
-                     Data.Moist,
-                     Data.Fan ? 1 : 0,
-                     Data.Pump ? 1 : 0,
-                     '\0');
-            Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
-
-            LastData = Data;
-#ifdef CONFIG_PRINT_DEBUG_LOGS
-            ESP_LOGI(TAG, "%.*s", MAX_MSG_BUF_LEN, MessageBuffer);
-#endif
+            xSemaphoreGive(UpdataInfo.Semaphore);
+            LastTimestamp = Data.Timestamp;
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -271,9 +237,9 @@ static esp_err_t SensActsInit(void)
     return ReturnStatus;
 }
 
-static void Generic_Init_Task(void *pvParameters)
+static void GenericInitTask(void *pvParameters)
 {
-    TaskInfo *Task = (TaskInfo *)pvParameters;
+    InitTaskInfo *Task = (InitTaskInfo *)pvParameters;
 
     if (Task->InitFunction != NULL)
     {
@@ -282,4 +248,64 @@ static void Generic_Init_Task(void *pvParameters)
 
     xSemaphoreTake(Task->Semaphore, portMAX_DELAY);
     vTaskDelete(NULL);
+}
+
+static void UpdateDataTask(void *pvParameters)
+{
+    UpdateTaskInfo *TaskData = (UpdateTaskInfo *)pvParameters;
+    SysCtrl_Data *pData = TaskData->pData;
+    SemaphoreHandle_t pSemaphore = TaskData->Semaphore;
+
+    char MessageBuffer[MAX_MSG_BUF_LEN];
+    SysCtrl_Data LastData = *pData;
+    SysCtrl_DataPos DataPos = {
+        .TempRow = 0,
+        .TempCol = 2,
+        .HumRow = 0,
+        .HumCol = 10,
+        .MoistRow = 1,
+        .MoistCol = 2,
+        .FanRow = 1,
+        .FanCol = 10,
+        .PumpRow = 1,
+        .PumpCol = 14,
+    };
+
+    GetLimits();
+
+    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "T:%3d C H:%3d %% %c",
+             pData->Dht11Data.temperature,
+             pData->Dht11Data.humidity,
+             '\0');
+    LcdCtrl_MoveCurs(0, 0);
+    LcdCtrl_SendString(MessageBuffer);
+    snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "M:%3d %% F:%1d P:%1d %c",
+             pData->Moist,
+             pData->Fan ? 1 : 0,
+             pData->Pump ? 1 : 0,
+             '\0');
+    LcdCtrl_MoveCurs(1, 0);
+    LcdCtrl_SendString(MessageBuffer);
+
+    while (1)
+    {
+        xSemaphoreTake(pSemaphore, portMAX_DELAY);
+
+        LcdCtrl_PrintNewData(&LastData, pData, &DataPos);
+
+        snprintf(MessageBuffer, MAX_MSG_BUF_LEN, "%10lu,%3d,%3d,%3d,%d,%d%c",
+                 pData->Timestamp,
+                 pData->Dht11Data.temperature,
+                 pData->Dht11Data.humidity,
+                 pData->Moist,
+                 pData->Fan ? 1 : 0,
+                 pData->Pump ? 1 : 0,
+                 '\0');
+        Mqtt_SendMessage("plant", MessageBuffer, strlen(MessageBuffer));
+
+        LastData = *pData;
+#ifdef CONFIG_PRINT_DEBUG_LOGS
+        ESP_LOGI(TAG, "%.*s", MAX_MSG_BUF_LEN, MessageBuffer);
+#endif
+    }
 }
