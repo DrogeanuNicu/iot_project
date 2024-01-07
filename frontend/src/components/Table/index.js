@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import TableRow from "../../components/TableRow"
+import TableRow from "./TableRow"
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 class Table extends Component {
@@ -34,17 +34,19 @@ class Table extends Component {
 
     render() {
         return (
-            <table className="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Property</th>
-                        <th>Value</th>
-                        <th>Min</th>
-                        <th>Max</th>
-                    </tr>
-                </thead>
-                <tbody>{this.generateTable(this.props.data, this.labels, this.limits)}</tbody>
-            </table>
+            <div>
+                <table className="table table-bordered table-striped" style={{ tableLayout: 'fixed' }}>
+                    <thead className="thead-dark">
+                        <tr>
+                            <th style={{ width: '25%' }}>Property</th>
+                            <th style={{ width: '25%' }}>Value</th>
+                            <th style={{ width: '25%' }}>Min</th>
+                            <th style={{ width: '25%' }}>Max</th>
+                        </tr>
+                    </thead>
+                    <tbody>{this.generateTable(this.props.data, this.labels, this.limits)}</tbody>
+                </table>
+            </div>
         );
     }
 }

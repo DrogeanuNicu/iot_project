@@ -71,34 +71,36 @@ class TableRow extends Component {
         if (this.state.min == null || this.state.max == null) {
             return (
                 <tr key={this.props.rowKey}>
-                    <td >{this.props.name}</td>
-                    <td >{this.props.data}</td>
-                    <td ></td>
-                    <td ></td>
+                    <td style={{ width: '25%' }}>{this.props.name}</td>
+                    <td style={{ width: '25%' }}>{this.props.data}</td>
+                    <td style={{ width: '25%' }}></td>
+                    <td style={{ width: '25%' }}></td>
                 </tr>
             );
         } else {
             return (
                 <tr key={this.props.rowKey}>
-                    <td>{this.props.name}</td>
-                    <td>{this.props.data}</td>
-                    <td>
+                    <td style={{ width: '25%' }}>{this.props.name}</td>
+                    <td style={{ width: '25%' }}>{this.props.data}</td>
+                    <td style={{ width: '25%' }}>
                         <input
                             id={this.props.rowKey + "_min"}
                             type="number"
                             value={this.state.min}
                             onChange={(e) => this.handleMinChange(e.target.value)}
                             onKeyDown={(e) => this.handleKeyPress(this.props.rowKey, "min", e)}
+                            style={{ width: '100%' }}
                         />
                         {this.state.minError && <div style={{ color: 'red' }}>{this.state.minError}</div>}
                     </td>
-                    <td>
+                    <td style={{ width: '25%' }}>
                         <input
                             id={this.props.rowKey + "_max"}
                             type="number"
                             value={this.state.max}
                             onChange={(e) => this.handleMaxChange(e.target.value)}
                             onKeyDown={(e) => this.handleKeyPress(this.props.rowKey, "max", e)}
+                            style={{ width: '100%' }}
                         />
                         {this.state.maxError && <div style={{ color: 'red' }}>{this.state.maxError}</div>}
                     </td>
