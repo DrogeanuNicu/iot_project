@@ -42,11 +42,11 @@ typedef struct
 
 static const char *TAG = "SysCtrl";
 static SysCtrl_Limits Limits = {
-    .TempMin = 20,
-    .TempMax = 30,
-    .HumMin = 40,
-    .HumMax = 60,
-    .MoistMin = 50,
+    .TempMin = 10,
+    .TempMax = 50,
+    .HumMin = 20,
+    .HumMax = 80,
+    .MoistMin = 5,
     .MoistMax = 90,
 };
 
@@ -135,7 +135,8 @@ void SysCtrl_Main(void)
         Data.Timestamp = TimeCtrl_GetTime();
         Data.Dht11Data = DHT11_read(Data.Timestamp);
         Data.Moist = MoistCtrl_GetMoist(Data.Timestamp);
-        Data.Fan = (Data.Dht11Data.temperature > Limits.TempMax);
+        Data.Fan = (Data.Dht11Data.temperature > Limits.TempMax) |
+                   (Data.Dht11Data.humidity > Limits.HumMax);
         Data.Pump = (Data.Moist < Limits.MoistMin);
 
         FanCtrl_SetState(Data.Fan);
